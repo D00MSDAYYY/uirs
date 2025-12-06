@@ -1,0 +1,322 @@
+{
+  "calculation_date": "2025-12-07T02:57:31.056541",
+  "filename": "IACG0010.25I",
+  "receiver_location": {
+    "name": "Moscow",
+    "latitude": 55.7558,
+    "longitude": 37.6173
+  },
+  "ionospheric_model": {
+    "height_m": 450000.0,
+    "earth_radius_m": 6371000.0,
+    "model_type": "single_layer"
+  },
+  "glonass_frequencies": {
+    "L1": {
+      "hz": 1602000000.0,
+      "mhz": 1602.0
+    },
+    "L2": {
+      "hz": 1246000000.0,
+      "mhz": 1246.0
+    },
+    "L1OC": {
+      "hz": 1600995000.0,
+      "mhz": 1600.995
+    },
+    "L2OC": {
+      "hz": 1248060000.0,
+      "mhz": 1248.06
+    }
+  },
+  "results": [
+    {
+      "satellite": "GLONASS-1",
+      "frequency": "L1",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 45,
+        "azimuth": 30
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 70.48606062887023,
+        "longitude": 118.95797157567017
+      },
+      "vtec": 27.004826877213198,
+      "stec": 35.96501103645624,
+      "mapping_function": 1.3317993557219834,
+      "delay_m": 5.648953145644844,
+      "delay_ns": 18.842879448437774,
+      "frequency_hz": 1602000000.0,
+      "elevation_deg": 45.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-1",
+      "frequency": "L2",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 45,
+        "azimuth": 30
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 70.48606062887023,
+        "longitude": 118.95797157567017
+      },
+      "vtec": 27.004826877213198,
+      "stec": 35.96501103645624,
+      "mapping_function": 1.3317993557219834,
+      "delay_m": 9.338065404025151,
+      "delay_ns": 31.148433373948162,
+      "frequency_hz": 1246000000.0,
+      "elevation_deg": 45.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-8",
+      "frequency": "L1",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 60,
+        "azimuth": 120
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 36.83862100966067,
+        "longitude": 67.9719067484557
+      },
+      "vtec": 27.868093047084123,
+      "stec": 31.516075128879695,
+      "mapping_function": 1.1309017475875431,
+      "delay_m": 4.950167582520681,
+      "delay_ns": 16.51198170742735,
+      "frequency_hz": 1602000000.0,
+      "elevation_deg": 60.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-8",
+      "frequency": "L2",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 60,
+        "azimuth": 120
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 36.83862100966067,
+        "longitude": 67.9719067484557
+      },
+      "vtec": 27.868093047084123,
+      "stec": 31.516075128879695,
+      "mapping_function": 1.1309017475875431,
+      "delay_m": 8.18293008539133,
+      "delay_ns": 27.295316700032963,
+      "frequency_hz": 1246000000.0,
+      "elevation_deg": 60.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-15",
+      "frequency": "L1",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 30,
+        "azimuth": 210
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 5.269236041369751,
+        "longitude": 13.65333227098094
+      },
+      "vtec": 25.77332179281517,
+      "stec": 43.835299208681654,
+      "mapping_function": 1.7008012999279596,
+      "delay_m": 6.885123741632095,
+      "delay_ns": 22.966300712048252,
+      "frequency_hz": 1602000000.0,
+      "elevation_deg": 30.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-15",
+      "frequency": "L2",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 30,
+        "azimuth": 210
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 5.269236041369751,
+        "longitude": 13.65333227098094
+      },
+      "vtec": 25.77332179281517,
+      "stec": 43.835299208681654,
+      "mapping_function": 1.7008012999279596,
+      "delay_m": 11.381531083106116,
+      "delay_ns": 37.964701177059354,
+      "frequency_hz": 1246000000.0,
+      "elevation_deg": 30.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-22",
+      "frequency": "L1",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 75,
+        "azimuth": 300
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 60.47557219351857,
+        "longitude": 12.477067745617461
+      },
+      "vtec": 33.577441337999346,
+      "stec": 34.60378789085643,
+      "mapping_function": 1.0305665503969053,
+      "delay_m": 5.435148518629268,
+      "delay_ns": 18.129703978841484,
+      "frequency_hz": 1602000000.0,
+      "elevation_deg": 75.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-22",
+      "frequency": "L2",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 75,
+        "azimuth": 300
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 60.47557219351857,
+        "longitude": 12.477067745617461
+      },
+      "vtec": 33.577441337999346,
+      "stec": 34.60378789085643,
+      "mapping_function": 1.0305665503969053,
+      "delay_m": 8.9846332654892,
+      "delay_ns": 29.96951065890123,
+      "frequency_hz": 1246000000.0,
+      "elevation_deg": 75.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-3",
+      "frequency": "L1",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 15,
+        "azimuth": 45
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 45.68707304669196,
+        "longitude": 103.57114005821461
+      },
+      "vtec": 25.98158732932942,
+      "stec": 60.23797997551693,
+      "mapping_function": 2.318487289170244,
+      "delay_m": 9.461460365605289,
+      "delay_ns": 31.560034661063053,
+      "frequency_hz": 1602000000.0,
+      "elevation_deg": 15.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-3",
+      "frequency": "L2",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 15,
+        "azimuth": 45
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 45.68707304669196,
+        "longitude": 103.57114005821461
+      },
+      "vtec": 25.98158732932942,
+      "stec": 60.23797997551693,
+      "mapping_function": 2.318487289170244,
+      "delay_m": 15.64037325742915,
+      "delay_ns": 52.170669541757285,
+      "frequency_hz": 1246000000.0,
+      "elevation_deg": 15.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-12",
+      "frequency": "L1",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 85,
+        "azimuth": 180
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 51.086421944880875,
+        "longitude": 37.6173
+      },
+      "vtec": 31.7358820688062,
+      "stec": 31.84156304414511,
+      "mapping_function": 1.003330015378485,
+      "delay_m": 5.001291325564836,
+      "delay_ns": 16.682512158344007,
+      "frequency_hz": 1602000000.0,
+      "elevation_deg": 85.0,
+      "time_index": 0
+    },
+    {
+      "satellite": "GLONASS-12",
+      "frequency": "L2",
+      "receiver_coords": {
+        "latitude": 55.7558,
+        "longitude": 37.6173
+      },
+      "satellite_geometry": {
+        "elevation": 85,
+        "azimuth": 180
+      },
+      "ionospheric_pierce_point": {
+        "latitude": 51.086421944880875,
+        "longitude": 37.6173
+      },
+      "vtec": 31.7358820688062,
+      "stec": 31.84156304414511,
+      "mapping_function": 1.003330015378485,
+      "delay_m": 8.2674407626684,
+      "delay_ns": 27.57721397603805,
+      "frequency_hz": 1246000000.0,
+      "elevation_deg": 85.0,
+      "time_index": 0
+    }
+  ]
+}
