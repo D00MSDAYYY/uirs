@@ -662,6 +662,431 @@ def plot_tec_map_with_satellites(
     print("=" * 70)
 
 
+def plot_ionospheric_delays_moscow(
+    maps,
+    header,
+    satellites_data,
+    moscow_coords=(55.7558, 37.6173),
+    selected_prns=[1, 2, 3],
+    glonass_freq=1602e6,
+):
+    """
+    Рассчитывает и строит график ионосферной задержки для выбранных спутников ГЛОНАСС в Москве
+
+    Parameters:
+    maps: список карт TEC из IONEX файла
+    header: заголовок IONEX файла
+    satellites_data: данные спутников ГЛОНАСС
+    moscow_coords: координаты Москвы (широта, долгота) в градусах
+    selected_prns: список PRN номеров спутников для анализа
+    glonass_freq: частота сигнала ГЛОНАСС L1 в Гц
+    """
+
+    moscow_lat, moscow_lon = moscow_coords
+
+    # Функция для интерполяции VTEC в произвольной точке
+    def get_vtec_at_point(tec_map, lat, lon, header):
+        """Интерполяция VTEC в заданной точке"""
+        lat_range = header["lat_range"]
+        lon_range = header["lon_range"]
+
+        # Индексы в сетке
+        lat_idx = (lat - lat_range[0]) / lat_range[2]
+        lon_idx = (lon - lon_range[0]) / lon_range[2]
+
+        # Билинейная интерполяция
+        lat1 = int(np.floor(lat_idx))
+        lat2 = int(np.ceil(lat_idx))
+        lon1 = int(np.floor(lon_idx))
+        lon2 = int(np.ceil(lon_idx))
+
+        # Проверка границ
+        lat1 = max(0, min(lat1, tec_map.shape[0] - 1))
+        lat2 = max(0, min(lat2, tec_map.shape[0] - 1))
+        lon1 = max(0, min(lon1, tec_map.shape[1] - 1))
+        lon2 = max(0, min(lon2, tec_map.shape[1] - 1))
+
+        # Значения в соседних точках
+        Q11 = tec_map[lat1, lon1]
+        Q12 = tec_map[lat1, lon2]
+        Q21 = tec_map[lat2, lon1]
+        Q22 = tec_map[lat2, lon2]
+
+        # Доли для интерполяции
+        if lat2 != lat1:
+            lat_frac = (lat_idx - lat1) / (lat2 - lat1)
+        else:
+            lat_frac = 0
+
+        if lon2 != lon1:
+            lon_frac = (lon_idx - lon1) / (lon2 - lon1)
+        else:
+            lon_frac = 0
+
+        # Билинейная интерполяция
+        R1 = Q11 * (1 - lon_frac) + Q12 * lon_frac
+        R2 = Q21 * (1 - lon_frac) + Q22 * lon_frac
+        vtec = R1 * (1 - lat_frac) + R2 * lat_frac
+
+        return vtec
+
+    def calculate_elevation_azimuth(sat_lat, sat_lon, sat_height, user_lat, user_lon):
+        """
+        Рассчитывает угол места и азимут спутника относительно пользователя
+
+        Parameters:
+        sat_lat, sat_lon: широта и долгота спутника в градусах
+        sat_height: высота спутника в км
+        user_lat, user_lon: координаты пользователя в градусах
+
+        Returns:
+        elevation: угол места в градусах
+        azimuth: азимут в градусах
+        """
+        # Константы
+        R = 6371.0  # Радиус Земли в км
+
+        # Переводим градусы в радианы
+        sat_lat_rad = np.radians(sat_lat)
+        sat_lon_rad = np.radians(sat_lon)
+        user_lat_rad = np.radians(user_lat)
+        user_lon_rad = np.radians(user_lon)
+
+        # Разницы координат
+        dlon = sat_lon_rad - user_lon_rad
+        dlat = sat_lat_rad - user_lat_rad
+
+        # Сферическое расстояние между точками
+        a = (
+            np.sin(dlat / 2) ** 2
+            + np.cos(user_lat_rad) * np.cos(sat_lat_rad) * np.sin(dlon / 2) ** 2
+        )
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+        distance = R * c  # Расстояние по поверхности Земли в км
+
+        # Расстояние по прямой (с учетом высоты спутника)
+        # Используем теорему косинусов для сферического треугольника
+        # Упрощенный расчет угла места
+        sat_distance = np.sqrt(
+            (R + sat_height) ** 2 + R**2 - 2 * R * (R + sat_height) * np.cos(c)
+        )
+
+        # Угол места
+        elevation = np.degrees(np.arcsin(((R + sat_height) * np.sin(c)) / sat_distance))
+
+        # Азимут
+        y = np.sin(dlon) * np.cos(sat_lat_rad)
+        x = np.cos(user_lat_rad) * np.sin(sat_lat_rad) - np.sin(user_lat_rad) * np.cos(
+            sat_lat_rad
+        ) * np.cos(dlon)
+        azimuth = np.degrees(np.arctan2(y, x))
+
+        # Нормализуем азимут в диапазон [0, 360)
+        if azimuth < 0:
+            azimuth += 360
+
+        return elevation, azimuth, sat_distance
+
+    def calculate_mapping_function(elevation_deg, h=450.0, R=6371.0):
+        """Функция отображения для однослойной модели ионосферы"""
+        E = np.radians(elevation_deg)
+
+        # Угол места в точке прокола ионосферы
+        sin_E_prime = (R / (R + h)) * np.sin(E)
+        E_prime = np.arcsin(sin_E_prime)
+
+        # Функция отображения
+        m = 1 / np.cos(E_prime)
+
+        return m
+
+    def calculate_ionospheric_delay(vtec, elevation_deg, frequency):
+        """Расчет ионосферной задержки"""
+        K = 40.31  # m³/s²
+        h = 450.0  # высота ионосферного слоя в км
+        R = 6371.0  # радиус Земли в км
+
+        # Функция отображения
+        m = calculate_mapping_function(elevation_deg, h, R)
+
+        # Наклонное электронное содержание
+        stec = vtec * m
+
+        # Ионосферная задержка в метрах
+        delay = (K / (frequency**2)) * stec * 1e16  # TECU = 10^16 el/m²
+
+        return delay
+
+    # Собираем данные для каждого спутника
+    results = {}
+
+    for prn in selected_prns:
+        if prn in satellites_data:
+            sat_data_list = satellites_data[prn]
+
+            delays = []
+            times = []
+            elevations = []
+            azimuths = []
+            distances = []
+            vtec_values = []
+
+            for sat_data in sat_data_list[
+                :20
+            ]:  # Берем первые 20 точек для каждого спутника
+                try:
+                    epoch = sat_data["epoch"]
+                    sat_lat = sat_data["lat"]
+                    sat_lon = sat_data["lon"]
+                    sat_height = sat_data["height"]
+
+                    # Находим ближайшую карту TEC по времени
+                    closest_map = None
+                    min_time_diff = timedelta(days=365)
+
+                    for tec_map_dict in maps:
+                        time_diff = abs(tec_map_dict["epoch"] - epoch)
+                        if time_diff < min_time_diff:
+                            min_time_diff = time_diff
+                            closest_map = tec_map_dict
+
+                    if closest_map is None:
+                        continue
+
+                    # Получаем VTEC в точке Москвы
+                    vtec = get_vtec_at_point(
+                        closest_map["tec"], moscow_lat, moscow_lon, header
+                    )
+
+                    # Рассчитываем угол места и азимут
+                    elevation, azimuth, distance = calculate_elevation_azimuth(
+                        sat_lat, sat_lon, sat_height, moscow_lat, moscow_lon
+                    )
+
+                    # Рассчитываем ионосферную задержку
+                    delay = calculate_ionospheric_delay(vtec, elevation, glonass_freq)
+
+                    # Сохраняем результаты
+                    delays.append(delay)
+                    times.append(epoch)
+                    elevations.append(elevation)
+                    azimuths.append(azimuth)
+                    distances.append(distance)
+                    vtec_values.append(vtec)
+
+                except Exception as e:
+                    print(f"Ошибка расчета для спутника R{prn:02d}: {e}")
+                    continue
+
+            if delays:  # Если есть данные
+                results[prn] = {
+                    "delays": delays,
+                    "times": times,
+                    "elevations": elevations,
+                    "azimuths": azimuths,
+                    "distances": distances,
+                    "vtec": vtec_values,
+                }
+
+    # Если нет данных для построения
+    if not results:
+        print("Нет данных для построения графика!")
+        return None
+
+    # Создаем графики
+    fig, axes = plt.subplots(3, 2, figsize=(16, 12))
+    fig.suptitle(
+        f"Ионосферные задержки сигналов ГЛОНАСС в Москве ({moscow_lat:.2f}°N, {moscow_lon:.2f}°E)",
+        fontsize=16,
+        fontweight="bold",
+    )
+
+    # Цвета для спутников
+    colors = ["red", "blue", "green", "purple", "orange", "cyan"]
+
+    # 1. Ионосферные задержки во времени
+    ax1 = axes[0, 0]
+    for idx, (prn, data) in enumerate(results.items()):
+        ax1.plot(
+            data["times"],
+            data["delays"],
+            color=colors[idx % len(colors)],
+            linewidth=2,
+            marker="o",
+            markersize=5,
+            label=f"R{prn:02d}",
+        )
+
+    ax1.set_xlabel("Время (UTC)", fontsize=11)
+    ax1.set_ylabel("Ионосферная задержка (м)", fontsize=11)
+    ax1.set_title("Ионосферная задержка во времени", fontsize=12, fontweight="bold")
+    ax1.grid(True, alpha=0.3)
+    ax1.legend()
+    ax1.tick_params(axis="x", rotation=45)
+
+    # 2. Зависимость задержки от угла места
+    ax2 = axes[0, 1]
+    for idx, (prn, data) in enumerate(results.items()):
+        ax2.scatter(
+            data["elevations"],
+            data["delays"],
+            color=colors[idx % len(colors)],
+            s=50,
+            alpha=0.7,
+            label=f"R{prn:02d}",
+        )
+
+    ax2.set_xlabel("Угол места (°)", fontsize=11)
+    ax2.set_ylabel("Ионосферная задержка (м)", fontsize=11)
+    ax2.set_title("Зависимость задержки от угла места", fontsize=12, fontweight="bold")
+    ax2.grid(True, alpha=0.3)
+    ax2.legend()
+
+    # 3. Угол места во времени
+    ax3 = axes[1, 0]
+    for idx, (prn, data) in enumerate(results.items()):
+        ax3.plot(
+            data["times"],
+            data["elevations"],
+            color=colors[idx % len(colors)],
+            linewidth=2,
+            marker="s",
+            markersize=4,
+            label=f"R{prn:02d}",
+        )
+
+    ax3.set_xlabel("Время (UTC)", fontsize=11)
+    ax3.set_ylabel("Угол места (°)", fontsize=11)
+    ax3.set_title("Угол места спутников во времени", fontsize=12, fontweight="bold")
+    ax3.grid(True, alpha=0.3)
+    ax3.legend()
+    ax3.tick_params(axis="x", rotation=45)
+
+    # 4. Азимут во времени
+    ax4 = axes[1, 1]
+    for idx, (prn, data) in enumerate(results.items()):
+        ax4.plot(
+            data["times"],
+            data["azimuths"],
+            color=colors[idx % len(colors)],
+            linewidth=2,
+            marker="^",
+            markersize=4,
+            label=f"R{prn:02d}",
+        )
+
+    ax4.set_xlabel("Время (UTC)", fontsize=11)
+    ax4.set_ylabel("Азимут (°)", fontsize=11)
+    ax4.set_title("Азимут спутников во времени", fontsize=12, fontweight="bold")
+    ax4.grid(True, alpha=0.3)
+    ax4.legend()
+    ax4.tick_params(axis="x", rotation=45)
+    ax4.set_ylim([0, 360])
+
+    # 5. VTEC в точке Москвы во времени
+    ax5 = axes[2, 0]
+    # Собираем все времена и значения VTEC
+    all_times = []
+    all_vtec = []
+    for prn, data in results.items():
+        all_times.extend(data["times"])
+        all_vtec.extend(data["vtec"])
+
+    if all_times and all_vtec:
+        # Сортируем по времени
+        sorted_data = sorted(zip(all_times, all_vtec), key=lambda x: x[0])
+        times_sorted, vtec_sorted = zip(*sorted_data)
+
+        ax5.plot(times_sorted, vtec_sorted, "b-", linewidth=2)
+        ax5.fill_between(times_sorted, vtec_sorted, alpha=0.3, color="blue")
+
+    ax5.set_xlabel("Время (UTC)", fontsize=11)
+    ax5.set_ylabel("VTEC (TECU)", fontsize=11)
+    ax5.set_title("VTEC в точке Москвы во времени", fontsize=12, fontweight="bold")
+    ax5.grid(True, alpha=0.3)
+    ax5.tick_params(axis="x", rotation=45)
+
+    # 6. Сводная статистика (текстовая панель)
+    ax6 = axes[2, 1]
+    ax6.axis("off")
+
+    stats_text = "СВОДНАЯ СТАТИСТИКА:\n"
+    stats_text += "=" * 40 + "\n"
+
+    for prn, data in results.items():
+        if data["delays"]:
+            stats_text += f"\nСпутник R{prn:02d}:\n"
+            stats_text += f"  Макс. задержка: {max(data['delays']):.3f} м\n"
+            stats_text += f"  Мин. задержка: {min(data['delays']):.3f} м\n"
+            stats_text += f"  Сред. задержка: {np.mean(data['delays']):.3f} м\n"
+            stats_text += f"  Макс. угол места: {max(data['elevations']):.1f}°\n"
+            stats_text += f"  Диапазон азимута: {min(data['azimuths']):.0f}° - {max(data['azimuths']):.0f}°\n"
+
+    stats_text += f"\nОбщие параметры:\n"
+    stats_text += f"  Частота ГЛОНАСС L1: {glonass_freq/1e6:.0f} МГц\n"
+    stats_text += f"  Высота ионосферы: 450 км\n"
+    stats_text += f"  Координаты Москвы: {moscow_lat:.4f}°N, {moscow_lon:.4f}°E\n"
+
+    ax6.text(
+        0.05,
+        0.95,
+        stats_text,
+        transform=ax6.transAxes,
+        fontsize=10,
+        verticalalignment="top",
+        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8),
+    )
+
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.94)
+    plt.show()
+
+    # Вывод информации в консоль
+    print("\n" + "=" * 80)
+    print("АНАЛИЗ ИОНОСФЕРНЫХ ЗАДЕРЖЕК ДЛЯ ГЛОНАСС В МОСКВЕ")
+    print("=" * 80)
+    print(f"Координаты приемника: {moscow_lat:.4f}°N, {moscow_lon:.4f}°E")
+    print(f"Частота сигнала: {glonass_freq/1e6:.0f} МГц (ГЛОНАСС L1)")
+    print(f"Анализируемые спутники: {selected_prns}")
+    print(f"Количество временных точек: {len(maps)}")
+
+    for prn, data in results.items():
+        if data["delays"]:
+            print(f"\n{'─'*40}")
+            print(f"СПУТНИК R{prn:02d}:")
+            print(f"  Количество точек: {len(data['delays'])}")
+            print(
+                f"  Временной диапазон: {data['times'][0].strftime('%H:%M')} - {data['times'][-1].strftime('%H:%M')} UTC"
+            )
+            print(f"  Ионосферная задержка:")
+            print(f"    Максимальная: {max(data['delays']):.3f} м")
+            print(f"    Минимальная: {min(data['delays']):.3f} м")
+            print(f"    Средняя: {np.mean(data['delays']):.3f} м")
+            print(f"    Стандартное отклонение: {np.std(data['delays']):.3f} м")
+            print(f"  Геометрия:")
+            print(
+                f"    Угол места: {min(data['elevations']):.1f}° - {max(data['elevations']):.1f}°"
+            )
+            print(
+                f"    Азимут: {min(data['azimuths']):.0f}° - {max(data['azimuths']):.0f}°"
+            )
+
+    print(f"\n{'='*80}")
+    print("ВЫВОДЫ:")
+    print(f"1. Ионосферная задержка зависит от угла места спутника")
+    print(f"2. Наименьшие задержки наблюдаются при высоких углах места (>60°)")
+    print(f"3. Наибольшие задержки - при низких углах места (<30°)")
+    print(
+        f"4. Средняя задержка составляет {np.mean([np.mean(d['delays']) for d in results.values()]):.3f} м"
+    )
+    print(
+        f"5. Максимальная задержка среди всех спутников: {max([max(d['delays']) for d in results.values()]):.3f} м"
+    )
+    print(f"{'='*80}")
+
+    return results
+
+
 # Основная программа
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -708,6 +1133,14 @@ if __name__ == "__main__":
                 maps[0]["epoch"],
                 satellites_data,
                 selected_prns=available_satellites[:3],  # максимум 3 для наглядности
+            )
+            results = plot_ionospheric_delays_moscow(
+                maps,  # данные из parse_ionex_simple()
+                header,  # заголовок из parse_ionex_simple()
+                satellites_data,  # данные из parse_glonass_nav()
+                moscow_coords=(55.7558, 37.6173),  # координаты Москвы
+                selected_prns=[1, 2, 3],  # какие спутники анализировать
+                glonass_freq=1602e6,  # частота ГЛОНАСС L1
             )
 
         except FileNotFoundError:
