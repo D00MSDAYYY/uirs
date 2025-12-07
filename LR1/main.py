@@ -479,23 +479,35 @@ def calculate_satellite_ground_track(satellite_data, num_points=100):
 def plot_tec_map_with_satellites(
     tec_map, header, epoch, satellites_data, selected_prns=[1, 2, 3]
 ):
-    """Визуализация карты TEC с траекториями спутников"""
+    """Визуализация карты TEC с траекториями спутников (только 2D карта)"""
     lat_range = header["lat_range"]
     lon_range = header["lon_range"]
 
     lats = np.arange(lat_range[0], lat_range[1] + lat_range[2], lat_range[2])
     lons = np.arange(lon_range[0], lon_range[1] + lon_range[2], lon_range[2])
 
-    # Создаем фигуру
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10))
+    # Создаем фигуру ТОЛЬКО с одной осью
+    fig, ax = plt.subplots(1, 1, figsize=(14, 7))
 
-    # 1. Карта TEC с траекториями спутников
-    contour = ax1.contourf(lons, lats, tec_map, levels=50, cmap="jet", alpha=0.7)
-    plt.colorbar(contour, ax=ax1, label="TECU (10¹⁶ el/m²)")
+    # Карта TEC с траекториями спутников
+    contour = ax.contourf(lons, lats, tec_map, levels=50, cmap="jet", alpha=0.7)
+    cbar = plt.colorbar(contour, ax=ax, label="TECU (10¹⁶ el/m²)")
+    cbar.ax.tick_params(labelsize=10)
 
     # Цвета для разных спутников
-    colors = ["red", "green", "blue", "purple", "orange", "cyan"]
-    markers = ["o", "s", "^", "v", "<", ">"]
+    colors = [
+        "red",
+        "green",
+        "blue",
+        "purple",
+        "orange",
+        "cyan",
+        "magenta",
+        "yellow",
+        "black",
+        "white",
+    ]
+    markers = ["o", "s", "^", "v", "<", ">", "p", "*", "X", "D"]
 
     # Рисуем траектории и текущие позиции выбранных спутников
     for idx, prn in enumerate(selected_prns):
@@ -514,15 +526,15 @@ def plot_tec_map_with_satellites(
 
             if closest_data:
                 # Рисуем текущую позицию спутника
-                ax1.scatter(
+                ax.scatter(
                     closest_data["lon"],
                     closest_data["lat"],
                     color=colors[idx % len(colors)],
                     marker=markers[idx % len(markers)],
-                    s=100,
+                    s=120,
                     label=f"R{prn:02d}",
                     edgecolor="black",
-                    linewidth=1.5,
+                    linewidth=2,
                     zorder=5,
                 )
 
@@ -534,108 +546,120 @@ def plot_tec_map_with_satellites(
                 )
                 if speed > 0:
                     # Упрощенное направление по изменению координат
-                    ax1.arrow(
+                    # Уменьшаем масштаб стрелки для лучшей визуализации
+                    dx = closest_data["Vx"] * 0.05
+                    dy = closest_data["Vy"] * 0.05
+                    ax.arrow(
                         closest_data["lon"],
                         closest_data["lat"],
-                        closest_data["Vx"] * 0.1,
-                        closest_data["Vy"] * 0.1,
-                        head_width=2,
-                        head_length=3,
+                        dx,
+                        dy,
+                        head_width=1.5,
+                        head_length=2,
                         fc=colors[idx % len(colors)],
                         ec="black",
                         zorder=6,
+                        alpha=0.8,
                     )
 
             # Рассчитываем и рисуем наземную трассу
             ground_track = calculate_satellite_ground_track(sat_data)
-            if ground_track:
+            if ground_track and len(ground_track) > 1:
                 lons_track, lats_track = zip(*ground_track)
-                ax1.plot(
+                ax.plot(
                     lons_track,
                     lats_track,
                     color=colors[idx % len(colors)],
-                    linewidth=2,
-                    alpha=0.7,
-                    linestyle="--",
+                    linewidth=3,
+                    alpha=0.8,
+                    linestyle="-",
+                    zorder=4,
                 )
 
-    ax1.set_xlabel("Долгота (°)")
-    ax1.set_ylabel("Широта (°)")
-    title = f"Карта TEC с траекториями ГЛОНАСС\n{epoch.strftime('%Y-%m-%d %H:%M UTC')}"
-    ax1.set_title(title)
-    ax1.grid(True, alpha=0.3)
-    ax1.legend(loc="upper right")
+                # Добавляем маркеры вдоль траектории
+                if len(ground_track) > 10:
+                    # Берем каждую 10-ю точку для маркеров
+                    step = len(ground_track) // 10
+                    for j in range(0, len(ground_track), step):
+                        lon_m, lat_m = ground_track[j]
+                        ax.scatter(
+                            lon_m,
+                            lat_m,
+                            color=colors[idx % len(colors)],
+                            marker=markers[idx % len(markers)],
+                            s=40,
+                            alpha=0.6,
+                            zorder=4,
+                        )
+
+    # Настройки осей
+    ax.set_xlabel("Долгота (°)", fontsize=12)
+    ax.set_ylabel("Широта (°)", fontsize=12)
+
+    title = f"Карта вертикального электронного содержания (VTEC) с траекториями ГЛОНАСС КА\n"
+    title += f"Время: {epoch.strftime('%Y-%m-%d %H:%M UTC')}"
+    ax.set_title(title, fontsize=14, fontweight="bold", pad=20)
+
+    ax.grid(True, alpha=0.3, linestyle="--")
+    ax.legend(loc="upper right", fontsize=10, framealpha=0.9)
 
     # Устанавливаем границы карты
-    ax1.set_xlim([lon_range[0], lon_range[1]])
-    ax1.set_ylim([lat_range[0], lat_range[1]])
+    ax.set_xlim([lon_range[0], lon_range[1]])
+    ax.set_ylim([lat_range[0], lat_range[1]])
 
-    # 2. 3D визуализация орбит (проекция)
-    ax2 = fig.add_subplot(2, 1, 2, projection="3d")
+    # Добавляем сетку с координатами
+    ax.set_xticks(np.arange(lon_range[0], lon_range[1] + 30, 30))
+    ax.set_yticks(np.arange(lat_range[0], lat_range[1] + 30, 30))
 
-    # Рисуем Землю (упрощенная сфера)
-    u = np.linspace(0, 2 * np.pi, 50)
-    v = np.linspace(0, np.pi, 25)
-    x_earth = 6371 * np.outer(np.cos(u), np.sin(v))
-    y_earth = 6371 * np.outer(np.sin(u), np.sin(v))
-    z_earth = 6371 * np.outer(np.ones(np.size(u)), np.cos(v))
-
-    ax2.plot_surface(x_earth, y_earth, z_earth, color="lightblue", alpha=0.3)
-
-    # Рисуем орбиты спутников в 3D
-    for idx, prn in enumerate(selected_prns[:3]):  # только 3 для 3D
-        if prn in satellites_data:
-            sat_data = satellites_data[prn]
-
-            # Берем несколько точек для визуализации орбиты
-            X_vals = [data["X"] for data in sat_data[:10]]
-            Y_vals = [data["Y"] for data in sat_data[:10]]
-            Z_vals = [data["Z"] for data in sat_data[:10]]
-
-            ax2.plot(
-                X_vals,
-                Y_vals,
-                Z_vals,
-                color=colors[idx % len(colors)],
-                linewidth=2,
-                label=f"R{prn:02d}",
-            )
-
-            # Текущая позиция
-            if sat_data:
-                current = sat_data[0]
-                ax2.scatter(
-                    [current["X"]],
-                    [current["Y"]],
-                    [current["Z"]],
-                    color=colors[idx % len(colors)],
-                    s=100,
-                )
-
-    ax2.set_xlabel("X (км)")
-    ax2.set_ylabel("Y (км)")
-    ax2.set_zlabel("Z (км)")
-    ax2.set_title("Орбиты ГЛОНАСС КА в системе координат ПЗ-90")
-    ax2.legend()
-
+    # Улучшаем читаемость подписей
+    plt.xticks(rotation=45)
     plt.tight_layout()
+
+    # Добавляем информационную панель в углу
+    info_text = f"Всего спутников: {len(selected_prns)}\n"
+    info_text += f"Время эпохи: {epoch.strftime('%H:%M UTC')}\n"
+    info_text += f"Макс TEC: {tec_map.max():.1f} TECU\n"
+    info_text += f"Мин TEC: {tec_map.min():.1f} TECU"
+
+    # Добавляем текстовую панель
+    props = dict(boxstyle="round", facecolor="wheat", alpha=0.8)
+    ax.text(
+        0.02,
+        0.98,
+        info_text,
+        transform=ax.transAxes,
+        fontsize=10,
+        verticalalignment="top",
+        bbox=props,
+    )
+
     plt.show()
 
-    # Выводим информацию о спутниках
-    print("\n" + "=" * 60)
+    # Выводим информацию о спутниках в консоль
+    print("\n" + "=" * 70)
     print("ИНФОРМАЦИЯ О СПУТНИКАХ ГЛОНАСС:")
-    print("=" * 60)
+    print("=" * 70)
 
+    total_sats = 0
     for prn in selected_prns:
         if prn in satellites_data and satellites_data[prn]:
+            total_sats += 1
             sat_data = satellites_data[prn][0]  # первая эпоха
             print(f"\nСпутник R{prn:02d}:")
-            print(f"  Время: {sat_data['epoch'].strftime('%H:%M:%S')}")
+            print(f"  Время: {sat_data['epoch'].strftime('%H:%M:%S UTC')}")
             print(f"  Координаты: {sat_data['lat']:.2f}°N, {sat_data['lon']:.2f}°E")
             print(f"  Высота: {sat_data['height']:.0f} км")
-            print(
-                f"  Скорость: {sqrt(sat_data['Vx']**2 + sat_data['Vy']**2 + sat_data['Vz']**2):.1f} км/с"
+            speed = sqrt(
+                sat_data["Vx"] ** 2 + sat_data["Vy"] ** 2 + sat_data["Vz"] ** 2
             )
+            print(f"  Скорость: {speed:.1f} км/с")
+            print(f"  Частотный канал: {sat_data.get('frequency_channel', 'N/A')}")
+            print(
+                f"  Состояние: {'Рабочий' if sat_data.get('health', 1) == 1 else 'Неисправен'}"
+            )
+
+    print(f"\nВсего обработано спутников: {total_sats}")
+    print("=" * 70)
 
 
 # Основная программа
