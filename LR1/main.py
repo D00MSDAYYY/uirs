@@ -3,138 +3,6 @@ from datetime import datetime
 import re
 
 
-class IONEXParser:
-    def __init__(self, filepath):
-        self.filepath = filepath
-        self.maps = []
-        self.header = {}
-
-    def parse(self):
-        with open(self.filepath, "r") as f:
-            lines = f.readlines()
-
-        # Парсинг заголовка
-        self._parse_header(lines)
-
-        # Парсинг данных
-        self._parse_data(lines)
-
-        return self.maps, self.header
-
-    def _parse_header(self, lines):
-        for i, line in enumerate(lines):
-            if "END OF HEADER" in line:
-                self.header_end_line = i
-                break
-
-            # Извлекаем ключевые параметры
-            if "LAT1 / LAT2 / DLAT" in line:
-                lat1, lat2, dlat = map(float, line.split()[:3])
-                self.header["lat_range"] = (lat1, lat2, dlat)
-                self.n_lat = int((lat2 - lat1) / dlat) + 1
-
-            elif "LON1 / LON2 / DLON" in line:
-                lon1, lon2, dlon = map(float, line.split()[:3])
-                self.header["lon_range"] = (lon1, lon2, dlon)
-                self.n_lon = int((lon2 - lon1) / dlon) + 1
-
-            elif "HGT1 / HGT2 / DHGT" in line:
-                hgt1, hgt2, dhgt = map(float, line.split()[:3])
-                self.header["height"] = hgt1
-
-            elif "EPOCH OF FIRST MAP" in line:
-                year, month, day, hour, minute, sec = map(int, line.split()[:6])
-                self.header["first_epoch"] = datetime(
-                    year, month, day, hour, minute, sec
-                )
-
-            elif "# OF MAPS IN FILE" in line:
-                self.n_maps = int(line.split()[0])
-                self.header["n_maps"] = self.n_maps
-
-            elif "INTERVAL" in line:
-                self.header["interval"] = int(line.split()[0])
-
-    def _parse_data(self, lines):
-        current_line = self.header_end_line + 1
-
-        while current_line < len(lines):
-            if "START OF TEC MAP" not in lines[current_line]:
-                current_line += 1
-                continue
-
-            current_line += 1
-
-            # Чтение времени эпохи
-            epoch_data = list(map(int, lines[current_line].split()[:6]))
-            epoch = datetime(*epoch_data)
-            current_line += 1
-
-            # Создание массива для карты
-            tec_map = np.zeros((self.n_lat, self.n_lon))
-            lat_idx = 0
-
-            while lat_idx < self.n_lat:
-                line = lines[current_line].strip()
-
-                # Проверяем, содержит ли строка данные о широте
-                # Формат: 87.5-180.0 180.0   5.0 450.0
-                if (
-                    line.replace(".", "", 1)
-                    .replace("-", "", 1)
-                    .split()[0]
-                    .replace(".", "", 1)
-                    .isdigit()
-                ):
-                    # Разделяем первую часть (например, "87.5-180.0")
-                    parts = line.split()
-                    first_part = parts[0]
-
-                    # Разделяем широту и долготу (могут быть разделены знаком минус)
-                    # Ищем позицию первого знака минус после цифр
-                    if "-" in first_part and not first_part.startswith("-"):
-                        # Случай: "87.5-180.0" - разделяем по первому минусу
-                        lat_part, rest = first_part.split("-", 1)
-                        lat = float(lat_part)
-                    else:
-                        # Случай: "-87.5-180.0" - первое число отрицательное
-                        # Ищем второй минус
-                        lat_part = first_part[: first_part.find("-", 1)]
-                        lat = float(lat_part)
-
-                    current_line += 1
-
-                    # Сбор всех значений TEC для текущей широты
-                    tec_values = []
-                    while len(tec_values) < self.n_lon:
-                        if current_line >= len(lines):
-                            break
-                        # Проверяем, не началась ли новая широта или новый блок
-                        next_line = lines[current_line].strip()
-                        if "LAT/LON1/LON2/DLON/H" in next_line:
-                            break
-                        if "END OF" in next_line or "START OF" in next_line:
-                            break
-
-                        # Разделяем строку на числа
-                        values = re.findall(r"[-+]?\d*\.?\d+", lines[current_line])
-                        if values:
-                            tec_values.extend(map(float, values))
-                        current_line += 1
-
-                    if len(tec_values) == self.n_lon:
-                        tec_map[lat_idx, :] = tec_values
-                        lat_idx += 1
-                else:
-                    current_line += 1
-
-            self.maps.append({"epoch": epoch, "tec": tec_map})
-
-            # Пропускаем END OF TEC MAP если есть
-            if current_line < len(lines) and "END OF TEC MAP" in lines[current_line]:
-                current_line += 1
-
-
 # Альтернативная, более простая версия парсера
 def parse_ionex_simple(filepath):
     """Упрощенный парсер для файлов IONEX"""
@@ -283,7 +151,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     # Используем упрощенный парсер
-    filepath = "IACG1820.23I"
+    filepath = "IACG0010.21I"
     print(f"Парсинг файла: {filepath}")
 
     maps, header = parse_ionex_simple(filepath)
